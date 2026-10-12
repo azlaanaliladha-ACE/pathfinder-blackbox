@@ -1,0 +1,15 @@
+# Install CUDA torch first:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+ultralytics
+opencv-python
+transformers
+pillow
+yt-dlp
+flask
+imageio-ffmpeg
+scikit-image
+openai>=1.40        # Nebius Token Factory is OpenAI-compatible
+tavily-python       # preflight web research
+markdown            # renders Nemotron reports on the site
+web3>=7             # Monad flight recorder (EVM)
+py-solc-x           # compiles contracts/FlightRecorder.sol

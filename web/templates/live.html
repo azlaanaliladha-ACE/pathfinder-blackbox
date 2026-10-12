@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vortex · Live perception</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d10; --panel: #13161a; --panel-2: #1a1e23; --line: #23282e;
+    --text: #eef1f4; --muted: #8a939d; --faint: #5b636c;
+    --accent: #5ab4ff; --clear: #50c878; --caution: #ffb020; --stop: #f05050;
+    --radius: 14px;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f5f7; --panel: #ffffff; --panel-2: #f1f3f5; --line: #e3e6ea;
+    --text: #0f1215; --muted: #5f6873; --faint: #9aa2ab;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 24px; border-bottom: 1px solid var(--line);
+           position: sticky; top: 0; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); z-index: 2; }
+  .brand { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+  .sep { width: 1px; height: 20px; background: var(--line); }
+  .title { color: var(--muted); font-weight: 500; }
+  .chips { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+  .chip { padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12.5px; background: var(--panel); }
+  .live { display: inline-flex; align-items: center; gap: 7px; color: var(--text); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--stop); animation: pulse 1.6s infinite; }
+  .dot.off { background: var(--faint); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+  button.theme { border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 999px;
+                 padding: 5px 12px; cursor: pointer; font: inherit; font-size: 12.5px; }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; padding: 20px 24px 28px; }
+  .views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-content: start; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .card-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .num { width: 22px; height: 22px; border-radius: 6px; background: var(--panel-2); color: var(--muted);
+         display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; flex: none; align-self: center; }
+  .card-title { font-weight: 600; }
+  .card-sub { color: var(--muted); font-size: 12.5px; }
+  .lat { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .frame { position: relative; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: #000; }
+  .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-size: 12.5px; min-height: 20px; }
+  .ramp { flex: 1; min-width: 120px; height: 8px; border-radius: 4px;
+          background: linear-gradient(90deg, rgb(30,80,48) 0%, rgb(70,135,68) 20%, rgb(180,182,108) 42%, rgb(196,148,88) 62%, rgb(128,88,58) 82%, rgb(232,226,214) 100%); }
+  .sw { display: inline-flex; align-items: center; gap: 6px; }
+  .sw i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  aside { display: flex; flex-direction: column; gap: 20px; }
+  .label { color: var(--muted); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+  .big { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .bar { position: relative; height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; margin-top: 12px; }
+  .bar > span { position: absolute; inset: 0 auto 0 0; border-radius: 4px; transition: width .2s ease, background .2s; }
+  .tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--faint); }
+  .scale { display: flex; justify-content: space-between; color: var(--faint); font-size: 11.5px; margin-top: 6px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 8px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+  tr:first-child td { border-top: 0; }
+  td.r { text-align: right; }
+  .obj { display: inline-flex; align-items: center; gap: 8px; }
+  .obj i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .id { color: var(--faint); font-size: 12px; }
+  .trend { font-size: 12px; color: var(--muted); }
+  .trend.in { color: var(--caution); }
+  .empty { color: var(--faint); padding: 6px 0; }
+
+  .stage { display: grid; grid-template-columns: 96px 1fr 58px; align-items: center; gap: 10px; margin: 7px 0; font-size: 13px; }
+  .stage .bar { margin: 0; height: 6px; }
+  .stage .bar > span { background: var(--accent); }
+  .stage .v { text-align: right; color: var(--muted); }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .kpi b { display: block; font-size: 18px; }
+  .kpi span { color: var(--muted); font-size: 11.5px; }
+
+  /* on a large screen everything fits in one view: panels are sized from the window height */
+  @media (min-width: 1200px) and (min-height: 680px) {
+    main { --vh: calc((100vh - 336px) / 2); grid-template-columns: auto minmax(320px, 400px); justify-content: center; }
+    .views { grid-template-columns: repeat(2, calc(var(--vh) * 4 / 3 + 30px)); }
+    .frame { height: var(--vh); aspect-ratio: auto; }
+    aside { max-height: calc(100vh - 110px); overflow: auto; }
+  }
+  @media (max-width: 1200px) { main { grid-template-columns: 1fr; } aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 760px) { .views, aside { grid-template-columns: 1fr; } header { flex-wrap: wrap; } .chips { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Vortex</div>
+  <div class="sep"></div>
+  <div class="title">Live perception</div>
+  <div class="chips">
+    <span class="chip" id="scene">Indoor</span>
+    <span class="chip" id="gpu">GPU</span>
+    <span class="chip live"><span class="dot off" id="dot"></span><span class="mono" id="fps">– fps</span></span>
+    <button class="theme" id="theme">Light</button>
+  </div>
+</header>
+
+<main>
+  <section class="views">
+    <article class="card">
+      <div class="card-head"><span class="num">1</span><span class="card-title">Object tracking</span>
+        <span class="card-sub">YOLO11 · ByteTrack</span><span class="lat mono" id="lat-detection">– ms</span></div>
+      <div class="frame"><img src="/stream/tracking" alt="Object tracking view"></div>
+      <div class="card-foot"><span id="track-count">No objects</span><span>· trails show each object's recent path</span></div>
+    </article>
+    <article class="card">
+      <div class="card-head"><span class="num">2</span><span class="card-title">Depth</span>
+        <span class="card-sub">Depth Anything V2</span><span class="lat mono" id="lat-depth">– ms</span></div>
+      <div class="frame"><img src="/stream/depth" alt="Depth map view"></div>
+      <div class="card-foot"><span class="mono" id="near">–</span><span class="ramp"></span><span class="mono" id="far">–</span></div>
+    </article>
+    <article class="card">
+      <div class="card-head"><span class="num">3</span><span class="card-title">Scene segmentation</span>
+        <span class="card-sub">SegFormer</span><span class="lat mono" id="lat-segmentation">– ms</span></div>
+      <div class="frame"><img src="/stream/segment" alt="Segmentation view"></div>
+      <div class="card-foot" id="seg-legend"></div>
+    </article>
+    <article class="card">
+      <div class="card-head"><span class="num">4</span><span class="card-title">Obstacle map</span>
+        <span class="card-sub">Depth + tracking fusion</span><span class="lat mono" id="range">–</span></div>
+      <div class="frame"><img src="/stream/map" alt="Top-down obstacle map"></div>
+      <div class="card-foot">
+        <span class="sw"><i style="background:#5ab4ff"></i>Surfaces</span>
+        <span class="sw"><i style="background:var(--clear)"></i>Flight corridor</span>
+        <span class="sw"><i style="background:#fff;border-radius:50%"></i>Tracked objects</span>
+      </div>
+    </article>
+  </section>
+
+  <aside>
+    <div class="card">
+      <div class="label">Flight path</div>
+      <div class="row"><div class="big" id="path-state">–</div><div class="mono" id="path-dist" style="font-size:20px">–</div></div>
+      <div class="bar" id="path-bar"><span id="path-fill"></span><i class="tick" id="tick-stop"></i><i class="tick" id="tick-warn"></i></div>
+      <div class="scale"><span>0</span><span id="path-range">–</span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Landing zone</div>
+      <div class="row"><div class="big mono" id="land-pct">–</div><div id="land-state" style="font-weight:600">–</div></div>
+      <div class="bar"><span id="land-fill" style="background:var(--clear)"></span></div>
+      <div class="scale"><span>Ground visible below the drone</span><span>50% needed</span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Tracked objects</div>
+      <table><tbody id="objects"><tr><td class="empty">No objects in view</td></tr></tbody></table>
+    </div>
+
+    <div class="card">
+      <div class="label">Pipeline</div>
+      <div id="stages"></div>
+      <div class="kpis">
+        <div class="kpi"><b class="mono" id="k-fps">–</b><span>Pipeline fps</span></div>
+        <div class="kpi"><b class="mono" id="k-cam">–</b><span>Camera fps</span></div>
+        <div class="kpi"><b class="mono" id="k-total">–</b><span>Latency</span></div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SEG = { ground: ["Ground", "#2bb3a3"], obstacle: ["Obstacle", "#ff6b6b"], person: ["Person", "#ffb020"],
+              vegetation: ["Vegetation", "#4caf50"], sky: ["Sky", "#5aa9ff"] };
+const STAGES = [["detection", "Detection"], ["depth", "Depth"], ["segmentation", "Segmentation"], ["render", "Render"]];
+const STATE_COL = { CLEAR: "var(--clear)", CAUTION: "var(--caution)", STOP: "var(--stop)" };
+
+// theme toggle, remembered per browser
+const root = document.documentElement;
+try { if (localStorage.getItem("theme") === "light") root.dataset.theme = "light"; } catch (e) {}
+const syncTheme = () => $("theme").textContent = root.dataset.theme === "light" ? "Dark" : "Light";
+syncTheme();
+$("theme").onclick = () => {
+  root.dataset.theme = root.dataset.theme === "light" ? "" : "light";
+  try { localStorage.setItem("theme", root.dataset.theme || "dark"); } catch (e) {}
+  syncTheme();
+};
+
+// reconnect a stream if it drops
+document.querySelectorAll(".frame img").forEach(img => {
+  img.onerror = () => setTimeout(() => { img.src = img.src.split("?")[0] + "?t=" + Date.now(); }, 1000);
+});
+
+const fmtDist = (m, indoor) => indoor && m < 10 ? `${Math.round(m * 100)} cm` : `${m.toFixed(1)} m`;
+
+function render(s) {
+  if (!s || s.fps === undefined) return;
+  const indoor = s.scene === "indoor";
+  $("dot").classList.remove("off");
+  $("fps").textContent = `${s.fps.toFixed(1)} fps`;
+  $("scene").textContent = indoor ? "Indoor" : "Outdoor";
+  $("gpu").textContent = s.gpu;
+  for (const k of ["detection", "depth", "segmentation"])
+    $("lat-" + k).textContent = s.latency_ms[k] !== undefined ? `${Math.round(s.latency_ms[k])} ms` : "– ms";
+
+  // views
+  const n = s.objects.length;
+  $("track-count").textContent = n ? `${n} object${n > 1 ? "s" : ""} tracked` : "No objects";
+  $("near").textContent = `${s.depth.near_m.toFixed(1)} m`;
+  $("far").textContent = `${s.depth.far_m.toFixed(1)} m`;
+  $("seg-legend").innerHTML = Object.entries(SEG).map(([k, [name, col]]) =>
+    `<span class="sw"><i style="background:${col}"></i>${name} <span class="mono">${Math.round((s.segments[k] || 0) * 100)}%</span></span>`).join("");
+  $("range").textContent = `range ${fmtDist(s.path.range_m, indoor)}`;
+
+  // flight path
+  const p = s.path;
+  $("path-state").textContent = p.state.charAt(0) + p.state.slice(1).toLowerCase();
+  $("path-state").style.color = STATE_COL[p.state];
+  $("path-dist").textContent = fmtDist(p.clearance_m, indoor);
+  $("path-fill").style.width = `${Math.min(100, p.clearance_m / p.range_m * 100)}%`;
+  $("path-fill").style.background = STATE_COL[p.state];
+  $("tick-stop").style.left = `${p.stop_m / p.range_m * 100}%`;
+  $("tick-warn").style.left = `${Math.min(99.5, p.warn_m / p.range_m * 100)}%`;
+  $("path-range").textContent = fmtDist(p.range_m, indoor);
+
+  // landing zone
+  const g = s.landing.ground_share;
+  $("land-pct").textContent = `${Math.round(g * 100)}%`;
+  $("land-state").textContent = s.landing.ok ? "Safe to land" : "No safe landing";
+  $("land-state").style.color = s.landing.ok ? "var(--clear)" : "var(--stop)";
+  $("land-fill").style.width = `${g * 100}%`;
+  $("land-fill").style.background = s.landing.ok ? "var(--clear)" : "var(--stop)";
+
+  // objects
+  $("objects").innerHTML = n ? s.objects.map(o => {
+    const trend = o.ttc_s ? `<span class="trend in">approaching · ${o.ttc_s}s</span>`
+      : Math.abs(o.speed_ms) < 0.15 ? `<span class="trend">steady</span>`
+      : o.speed_ms < 0 ? `<span class="trend in">approaching</span>` : `<span class="trend">moving away</span>`;
+    return `<tr><td><span class="obj"><i style="background:${o.colour}"></i>${o.label}</span> <span class="id mono">#${o.id}</span></td>
+            <td>${trend}</td><td class="r mono">${fmtDist(o.distance_m, indoor)}</td></tr>`;
+  }).join("") : `<tr><td class="empty">No objects in view</td></tr>`;
+
+  // pipeline
+  const lat = s.latency_ms, max = 60;
+  $("stages").innerHTML = STAGES.map(([k, name]) => {
+    const v = lat[k] || 0;
+    return `<div class="stage"><span>${name}</span><div class="bar"><span style="width:${Math.min(100, v / max * 100)}%"></span></div>
+            <span class="v mono">${v.toFixed(0)} ms</span></div>`;
+  }).join("");
+  $("k-fps").textContent = s.fps.toFixed(1);
+  $("k-cam").textContent = s.camera_fps.toFixed(0);
+  $("k-total").textContent = `${Math.round(1000 / Math.max(s.fps, 0.1))} ms`;
+}
+
+async function poll() {
+  try { render(await (await fetch("/state", { cache: "no-store" })).json()); }
+  catch (e) { $("dot").classList.add("off"); $("fps").textContent = "offline"; }
+  setTimeout(poll, 250);
+}
+poll();
+</script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pathfinder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0e0c; --panel: #121713; --line: #2b372e; --text: #dfe6df; --muted: #7d8b80;
+      --amber: #ffb928; --green: #8ceb78; --red: #eb3c3c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 15px/1.5 "Share Tech Mono", ui-monospace, monospace;
+      background-image: radial-gradient(ellipse at top, #18201a 0%, var(--bg) 60%);
+      min-height: 100vh;
+    }
+    body::after {                                  /* scanlines */
+      content: ""; position: fixed; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);
+    }
+    main { width: 100%; margin: 0 auto; padding: 0 2.5vw 64px; }
+
+    /* top status bar */
+    .bar {
+      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      padding: 8px 16px; border-bottom: 1px solid var(--line); background: #0e120f;
+      color: var(--muted); font-size: 13px; letter-spacing: .08em;
+    }
+    .bar b { color: var(--green); font-weight: normal; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+           margin-right: 6px; animation: blink 1.4s infinite; }
+    @keyframes blink { 50% { opacity: .2; } }
+
+    header { padding: 20px 0 12px; }
+    .tag { color: var(--amber); letter-spacing: .3em; font-size: 12px; }
+    h1 { font-family: "Black Ops One", system-ui; font-weight: normal; font-size: clamp(34px, 7vw, 60px);
+         margin: 4px 0 6px; letter-spacing: .04em; text-shadow: 0 0 18px rgba(255,185,40,.25); }
+    .sub { color: var(--muted); margin: 0; max-width: 680px; }
+
+    h2 { font-family: "Black Ops One", system-ui; font-weight: normal; letter-spacing: .08em;
+         font-size: 20px; margin: 40px 0 14px; display: flex; align-items: center; gap: 12px; }
+    h2::before { content: ""; width: 6px; height: 20px; background: var(--amber); }
+    h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+    /* bracketed frame */
+    .frame { position: relative; background: var(--panel); border: 1px solid var(--line); padding: 10px; }
+    .frame::before, .frame::after {
+      content: ""; position: absolute; width: 18px; height: 18px; border: 2px solid var(--amber);
+    }
+    .frame::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+    .frame::after { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+    .frame video, .frame img { display: block; width: 100%; height: calc(100vh - 150px); min-height: 480px;
+                               object-fit: contain; background: #000; }
+
+    /* mission tabs */
+    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    .tab {
+      background: #0e120f; border: 1px solid var(--line); color: var(--muted); cursor: pointer;
+      padding: 10px 12px; text-align: left; font: inherit; letter-spacing: .06em;
+      clip-path: polygon(0 0, 100% 0, 100% 70%, 92% 100%, 0 100%);
+    }
+    .tab small { display: block; color: var(--amber); font-size: 11px; letter-spacing: .25em; }
+    .tab:hover { color: var(--text); border-color: #4a5a4e; }
+    .tab[aria-selected="true"] { color: #111; background: var(--amber); border-color: var(--amber); }
+    .tab[aria-selected="true"] small { color: #111; }
+    .tab:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+    .intel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+    .intel div { border-left: 2px solid var(--amber); padding: 4px 10px; color: var(--muted); font-size: 13px; }
+    .intel b { display: block; color: var(--text); font-weight: normal; letter-spacing: .08em; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font-size: 12px;
+              letter-spacing: .06em; margin-top: 12px; }
+    .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px;
+                           vertical-align: -1px; background: var(--c); }
+
+    .btn {
+      font-family: "Black Ops One", system-ui; letter-spacing: .12em; font-size: 15px;
+      background: transparent; color: var(--amber); border: 2px solid var(--amber);
+      padding: 10px 22px; cursor: pointer; margin-top: 12px;
+    }
+    .btn:hover { background: var(--amber); color: #111; }
+    .empty { color: var(--muted); }
+    code { color: var(--green); }
+
+    /* mission debrief */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    .stats div { background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; }
+    .stats small { display: block; color: var(--muted); font-size: 11px; letter-spacing: .2em; }
+    .stats b { font-weight: normal; font-size: 22px; color: var(--green); overflow-wrap: anywhere; }
+    .timeline { display: flex; gap: 2px; height: 34px; margin-bottom: 6px; }
+    .timeline button { flex: 1; min-width: 3px; border: 0; padding: 0; cursor: pointer; background: var(--c); }
+    .timeline button.ovr { outline: 2px solid var(--red); outline-offset: -2px; }
+    .timeline button:hover, .timeline button:focus-visible { filter: brightness(1.5); outline: 1px solid #fff; }
+    #pick { color: var(--muted); font-size: 13px; min-height: 22px; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .doc { background: var(--panel); border: 1px solid var(--line); padding: 4px 18px 14px; max-height: 560px; overflow: auto; }
+    .doc h1, .doc h2, .doc h3 { font-family: inherit; font-size: 16px; color: var(--amber); letter-spacing: .08em; }
+    .doc h1::before, .doc h2::before, .doc h1::after, .doc h2::after { display: none; }
+    .doc a { color: var(--green); overflow-wrap: anywhere; }
+    form.plan { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; align-items: end; }
+    form.plan label { color: var(--muted); font-size: 12px; letter-spacing: .15em; }
+    form.plan input { width: 100%; background: #0e120f; color: var(--text); border: 1px solid var(--line);
+                      padding: 10px; font: inherit; }
+    form.plan .btn { margin: 0; }
+
+    @media (max-width: 640px) {
+      .tabs, .intel, .stats, .cols, form.plan { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <span><span class="dot"></span>SYSTEM <b>ONLINE</b></span>
+    <span>GPU <b>CUDA</b> · DEPTH <b>METRIC</b> · PLANNER <b>DIJKSTRA</b></span>
+    <span id="clock">--:--:--</span>
+  </div>
+
+  <main>
+    <header>
+      <div class="tag">// AI COPILOT + MONAD BLACK BOX FOR FIELD ROBOTS</div>
+      <h1>PATHFINDER</h1>
+      <p class="sub">Single-camera perception on the edge GPU (terrain, metric depth, 3D obstacles, mapping,
+        path planning) feeding an NVIDIA Nemotron copilot on Nebius Token Factory that decides the next manoeuvre
+        and writes the mission report.</p>
+    </header>
+
+    <h2>FIELD RECORDINGS</h2>
+    {% if demos %}
+    <div class="tabs" role="tablist">
+      {% for name, caption in demos %}
+      <button class="tab" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}"
+              data-src="{{ url_for('static', filename='videos/' + name + '.mp4') }}">
+        <small>MISSION {{ '%02d' % loop.index }}</small>{{ caption | upper }}
+      </button>
+      {% endfor %}
+    </div>
+    <div class="frame">
+      <video id="player" src="{{ url_for('static', filename='videos/' + demos[0][0] + '.mp4') }}"
+             controls muted loop playsinline autoplay></video>
+    </div>
+    <div class="intel">
+      <div><b>01 · WORLD MAP</b>Persistent height + terrain map of the whole flight, ending in a 3D orbit</div>
+      <div><b>02 · TERRAIN STATS</b>Traversal cost per grid cell, planned path, terrain share</div>
+      <div><b>03 · NEMOTRON COPILOT</b>Decision, risk and reason from Nemotron on Nebius Token Factory, checked by a hard safety guard</div>
+      <div><b>04 · SOFTWARE STACK</b>Every model in the pipeline with live per-frame timings</div>
+    </div>
+    <div class="legend">
+      <span style="--c:#00e6ff">GOOD TERRAIN</span>
+      <span style="--c:#146eff">SLOW</span>
+      <span style="--c:#8c1ec8">BAD</span>
+      <span style="--c:#ff3246">IMPASSABLE</span>
+      <span style="--c:#78ffff">OBSTACLE</span>
+      <span style="--c:#ffffff">PATH</span>
+    </div>
+    {% else %}
+    <p class="empty">No recordings yet. Run <code>record.py</code>.</p>
+    {% endif %}
+
+    {% if debrief %}
+    <h2>MISSION DEBRIEF</h2>
+    <div class="stats">
+      <div><small>NEMOTRON DECISIONS</small><b>{{ debrief.stats.decisions }}</b></div>
+      <div><small>LATENCY P50 / P95</small><b>{{ debrief.stats.latency_ms_p50 }} / {{ debrief.stats.latency_ms_p95 }} ms</b></div>
+      <div><small>SAFETY OVERRIDES</small><b>{{ debrief.stats.overrides }}</b></div>
+      <div><small>COPILOT MODEL</small><b style="font-size:14px">{{ debrief.stats.model }}</b></div>
+    </div>
+    <div class="timeline" aria-label="Copilot decisions over time; select one to jump the video there">
+      {% set colours = {"PROCEED": "#00e6ff", "SLOW": "#146eff", "VEER_LEFT": "#8c64ff", "VEER_RIGHT": "#8c64ff",
+                        "CLIMB": "#ffb928", "HOLD": "#ff3246", "RETURN": "#ff3246"} %}
+      {% for e in debrief.log %}
+      <button style="--c:{{ colours.get(e.decision.action, '#7d8b80') }}" class="{{ 'ovr' if e.decision.override }}"
+              data-t="{{ e.t }}" data-info="t={{ e.t }}s  {{ e.decision.action }} (risk {{ e.decision.risk }}) — {{ e.decision.reason }}{% if e.decision.override %}  · GUARD overrode {{ e.decision.proposed }}: {{ e.decision.override }}{% endif %}"
+              aria-label="t={{ e.t }}s {{ e.decision.action }}"></button>
+      {% endfor %}
+    </div>
+    <div id="pick">Hover or select a decision. Red outline = safety guard override.</div>
+    {% if debrief.chain %}{% set c = debrief.chain %}
+    <p class="empty">MONAD BLACK BOX · chain {{ c.chain_id }} · mission
+      <a href="{{ c.explorer }}/tx/{{ c.start_tx }}" style="color:var(--green)">#{{ c.mission_id }}</a> ·
+      {{ c.confirmed }} decisions on-chain (confirm p50 {{ c.confirm_ms_p50 }} ms) · head <code>{{ c.head[:18] }}…</code>
+      {{ "matches" if c.head == c.on_chain_head else "DOES NOT MATCH" }} the contract</p>
+    {% endif %}
+    <div class="cols">
+      <div class="doc">{% if debrief.brief_html %}{{ debrief.brief_html | safe }}{% else %}<h2>Mission brief</h2><p class="empty">Free flight: no brief. Run <code>plan_mission.py</code>.</p>{% endif %}</div>
+      <div class="doc">{% if debrief.report_html %}{{ debrief.report_html | safe }}{% else %}<p class="empty">No report yet.</p>{% endif %}</div>
+    </div>
+    {% endif %}
+
+    <h2>PLAN A MISSION</h2>
+    <form class="plan" id="plan">
+      <div><label for="site">SITE</label><input id="site" required placeholder="Fjadrargljufur canyon, Iceland"></div>
+      <div><label for="goal">GOAL</label><input id="goal" required placeholder="Survey the river bed, stay clear of water"></div>
+      <button class="btn" type="submit">PLAN</button>
+    </form>
+    <p class="empty" id="plan-status">Nemotron researches the site with Tavily, then writes a brief the copilot enforces in flight.</p>
+    <div class="doc" id="plan-out" hidden></div>
+
+    <h2>LIVE FEED</h2>
+    <div class="frame">
+      <img id="stream" alt="Live camera feed appears here after you start it">
+    </div>
+    <button class="btn" id="start">▶ ENGAGE CAMERA</button>
+  </main>
+
+  <script>
+    const player = document.getElementById("player");
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", "false"));
+        tab.setAttribute("aria-selected", "true");
+        player.src = tab.dataset.src;
+        player.play();
+      });
+    });
+    document.getElementById("start").addEventListener("click", e => {
+      document.getElementById("stream").src = "/live";
+      e.target.textContent = "● FEED ACTIVE";
+    });
+    const pick = document.getElementById("pick");
+    document.querySelectorAll(".timeline button").forEach(b => {
+      const show = () => { if (pick) pick.textContent = b.dataset.info; };
+      b.addEventListener("mouseenter", show);
+      b.addEventListener("focus", show);
+      b.addEventListener("click", () => { show(); player.currentTime = +b.dataset.t; player.play(); });
+    });
+    document.getElementById("plan").addEventListener("submit", async e => {
+      e.preventDefault();
+      const status = document.getElementById("plan-status"), out = document.getElementById("plan-out");
+      status.textContent = "Nemotron is researching the site ...";
+      const r = await fetch("/api/plan", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({site: site.value, goal: goal.value})});
+      const j = await r.json();
+      if (!r.ok) { status.textContent = "Failed: " + j.error; return; }
+      status.textContent = `${j.brief.go_no_go} · ${j.brief.searches} search results · ${j.brief.model}`;
+      out.innerHTML = j.html; out.hidden = false;
+    });
+    const clock = document.getElementById("clock");
+    setInterval(() => { clock.textContent = new Date().toTimeString().slice(0, 8); }, 1000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+__pycache__/
+.env
+*.pt
+checkpoints/
+weights/
+videos/
+survey/
+reels/
+reports/
+screenshots/
+web/static/videos/*.mp4
+web/static/videos/*.png
+.vercel/

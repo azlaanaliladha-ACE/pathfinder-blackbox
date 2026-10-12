@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pathfinder Black Box</title>
+  <meta name="description" content="A tamper-evident flight recorder for autonomous drones: every AI copilot decision is written to Monad while the drone is flying.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0b10; --panel: #13121b; --line: #2c2a3d; --text: #e4e2ee; --muted: #8a86a3;
+      --accent: #8b6cff; --amber: #ffb928; --green: #6cf0a0; --red: #ff4d5e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+           font: 15px/1.55 "Share Tech Mono", ui-monospace, monospace;
+           background-image: radial-gradient(ellipse at top, #1d1830 0%, var(--bg) 60%); min-height: 100vh; }
+    main { max-width: 1280px; margin: 0 auto; padding: 0 16px 72px; }
+    .bar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 16px;
+           border-bottom: 1px solid var(--line); background: #0e0d15; color: var(--muted); font-size: 13px;
+           letter-spacing: .08em; }
+    .bar b { color: var(--green); font-weight: normal; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+           margin-right: 6px; animation: blink 1.4s infinite; }
+    @keyframes blink { 50% { opacity: .2; } }
+    header { padding: 28px 0 8px; }
+    .tag { color: var(--accent); letter-spacing: .3em; font-size: 12px; }
+    h1 { font-family: "Black Ops One", system-ui; font-weight: normal; font-size: clamp(34px, 7vw, 62px);
+         margin: 4px 0 8px; letter-spacing: .04em; text-shadow: 0 0 22px rgba(139,108,255,.35); }
+    .sub { color: var(--muted); margin: 0; max-width: 760px; }
+    h2 { font-family: "Black Ops One", system-ui; font-weight: normal; letter-spacing: .08em; font-size: 20px;
+         margin: 44px 0 14px; display: flex; align-items: center; gap: 12px; }
+    h2::before { content: ""; width: 6px; height: 20px; background: var(--accent); }
+    h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    a { color: var(--accent); overflow-wrap: anywhere; }
+    .frame { background: var(--panel); border: 1px solid var(--line); padding: 8px; }
+    video { display: block; width: 100%; max-height: 72vh; background: #000; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+    .stats div { background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; min-width: 0; }
+    .stats small { display: block; color: var(--muted); font-size: 11px; letter-spacing: .2em; }
+    .stats b { font-weight: normal; font-size: 22px; color: var(--green); overflow-wrap: anywhere; }
+    .timeline { display: flex; gap: 2px; height: 34px; margin-bottom: 6px; }
+    .timeline button { flex: 1; min-width: 3px; border: 0; padding: 0; cursor: pointer; background: var(--c); }
+    .timeline button.ovr { outline: 2px solid var(--red); outline-offset: -2px; }
+    .timeline button.bad { background: repeating-linear-gradient(45deg, var(--red) 0 4px, #000 4px 8px); }
+    .timeline button:hover, .timeline button:focus-visible { filter: brightness(1.5); outline: 1px solid #fff; }
+    #pick { color: var(--muted); font-size: 13px; min-height: 44px; }
+    .btn { font-family: "Black Ops One", system-ui; letter-spacing: .12em; font-size: 15px; background: transparent;
+           color: var(--accent); border: 2px solid var(--accent); padding: 10px 22px; cursor: pointer; }
+    .btn:hover { background: var(--accent); color: #0b0b10; }
+    .btn.warn { color: var(--amber); border-color: var(--amber); }
+    .btn.warn:hover { background: var(--amber); color: #111; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .checks { list-style: none; padding: 0; margin: 14px 0 0; }
+    .checks li { padding: 8px 12px; border-left: 3px solid var(--line); margin-bottom: 6px; background: var(--panel); }
+    .checks li.ok { border-color: var(--green); } .checks li.ok b { color: var(--green); }
+    .checks li.no { border-color: var(--red); } .checks li.no b { color: var(--red); }
+    .checks b { font-weight: normal; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { background: var(--panel); border: 1px solid var(--line); padding: 14px 18px; }
+    .card h3 { margin: 0 0 6px; color: var(--accent); font-size: 15px; letter-spacing: .1em; font-weight: normal; }
+    .card p { margin: 0; color: var(--muted); }
+    pre { background: #0e0d15; border: 1px solid var(--line); padding: 12px; overflow-x: auto; color: var(--muted);
+          font-size: 13px; }
+    .muted { color: var(--muted); }
+    img.map { width: 100%; display: block; }
+    @media (max-width: 720px) { .stats, .cols { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 460px) { .stats, .cols { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <span><span class="dot"></span>MONAD <b id="net">…</b></span>
+    <span>RECORDER <a id="contract-link" href="#">…</a></span>
+    <span id="block">BLOCK …</span>
+  </div>
+  <main>
+    <header>
+      <div class="tag">// TAMPER-EVIDENT BLACK BOX FOR AUTONOMOUS DRONES</div>
+      <h1>PATHFINDER</h1>
+      <p class="sub">One camera, on-board perception, and an AI copilot that decides the next move once per
+        second. Every decision is written to a hash chain on <b>Monad</b> while the drone is still in the air.
+        Nobody can rewrite the flight log afterwards without the change showing up. You can check it below:
+        your browser recomputes the chain and compares it with the contract.</p>
+    </header>
+
+    <h2>RECORDED FLIGHT</h2>
+    <div class="frame"><video id="player" src="flight.mp4" controls muted loop playsinline autoplay></video></div>
+    <div class="stats">
+      <div><small>DECISIONS ON-CHAIN</small><b id="s-dec">…</b></div>
+      <div><small>TX CONFIRM P50 / P95</small><b id="s-lat">…</b></div>
+      <div><small>SAFETY OVERRIDES</small><b id="s-ovr">…</b></div>
+      <div><small>MISSION</small><b id="s-mis" style="font-size:16px">…</b></div>
+    </div>
+    <div class="timeline" id="timeline" aria-label="Copilot decisions over time; select one to jump the video and see its transaction"></div>
+    <div id="pick">Hover or select a decision to see it and its Monad transaction. A red outline means the safety guard overrode the AI.</div>
+
+    <h2>VERIFY AGAINST MONAD</h2>
+    <p class="muted">Your browser downloads the full flight log (every scene summary, decision and reason),
+      recomputes the keccak256 hash chain locally and reads the head stored by the FlightRecorder contract
+      over the public RPC. No server of ours is involved.</p>
+    <div class="row">
+      <button class="btn" id="verify">▶ VERIFY FLIGHT LOG</button>
+      <button class="btn warn" id="tamper">✎ TAMPER WITH ONE ENTRY</button>
+      <span class="muted" id="vstatus"></span>
+    </div>
+    <ul class="checks" id="checks"></ul>
+
+    <h2>HOW IT WORKS</h2>
+    <div class="cols">
+      <div class="card"><h3>01 · PERCEIVE ON THE VEHICLE</h3><p>CLIP terrain, Depth Anything V2 metric depth,
+        YOLO-World 3D obstacles, visual-odometry world map, Dijkstra planner. All on the drone's GPU, and no pixels leave it.</p></div>
+      <div class="card"><h3>02 · DECIDE AT 1 HZ</h3><p>An AI copilot (Nemotron, or a local rule set offline) reads a ~1 KB
+        scene summary and picks PROCEED / SLOW / VEER / CLIMB / HOLD / RETURN. A deterministic safety guard can veto it.</p></div>
+      <div class="card"><h3>03 · RECORD ON MONAD</h3><p>Each decision is one <code>logDecision</code> transaction:
+        action, AI proposal, risk, override flag and the hash of the full log entry, folded into a per-mission hash chain.
+        Sub-second blocks keep the on-chain log within about a second of the vehicle, so a crash or a seized
+        laptop loses at most the last decision.</p></div>
+      <div class="card"><h3>04 · ANYONE CAN AUDIT</h3><p>Insurers, regulators, customers and incident investigators
+        get the log file, recompute the chain and compare it with the contract. If one edited reason, dropped
+        override or reordered step breaks the match, the verifier names the first entry that changed.</p></div>
+    </div>
+    <pre>head₀ = 0x00…00
+headₙ = keccak256(headₙ₋₁ ‖ tMs ‖ action ‖ proposed ‖ riskBps ‖ overridden ‖ keccak256(canonicalJSON(entryₙ)))</pre>
+
+    <h2>3D MAP OF THE FLIGHT</h2>
+    <div class="frame"><img class="map" src="flight_map3d.png" alt="3D terrain map reconstructed from the flight, with the flight path"></div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+  <script>
+    const ACTIONS = ["PROCEED", "SLOW", "VEER_LEFT", "VEER_RIGHT", "CLIMB", "HOLD", "RETURN"];
+    const COLOURS = {PROCEED: "#6cf0a0", SLOW: "#3d8bff", VEER_LEFT: "#8b6cff", VEER_RIGHT: "#8b6cff",
+                     CLIMB: "#ffb928", HOLD: "#ff4d5e", RETURN: "#ff4d5e"};
+    const ZERO = "0x" + "00".repeat(32);
+    const $ = id => document.getElementById(id);
+    let data, abi, tampered = -1;
+
+    // same as terrain_nav/monad.py canonical(): sorted keys, no spaces, integral floats as ints (JSON does that already)
+    function canon(x) {
+      if (Array.isArray(x)) return x.map(canon);
+      if (x && typeof x === "object") return Object.fromEntries(Object.keys(x).sort().map(k => [k, canon(x[k])]));
+      return x;
+    }
+    const keccakJSON = obj => ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(canon(obj))));
+    function fields(e) {
+      const d = e.decision;
+      return [Math.round(e.t * 1000), ACTIONS.indexOf(d.action),
+              ACTIONS.includes(d.proposed) ? ACTIONS.indexOf(d.proposed) : ACTIONS.indexOf("HOLD"),
+              Math.round(d.risk * 10000), !!d.override, keccakJSON({t: e.t, scene: e.scene, decision: d})];
+    }
+    function heads(log) {
+      let h = ZERO; const out = [];
+      for (const e of log) {
+        h = ethers.solidityPackedKeccak256(["bytes32", "uint32", "uint8", "uint8", "uint16", "bool", "bytes32"], [h, ...fields(e)]);
+        out.push(h);
+      }
+      return out;
+    }
+
+    const explorer = p => `${data.chain.explorer}/${p}`;
+    function check(ok, label, detail) {
+      const li = document.createElement("li"); li.className = ok ? "ok" : "no";
+      li.innerHTML = `<b>${ok ? "✔ OK" : "✘ MISMATCH"}</b> · ${label}<br><span class="muted">${detail}</span>`;
+      $("checks").appendChild(li);
+    }
+
+    async function verify() {
+      $("checks").innerHTML = ""; $("vstatus").textContent = "reading the contract over the Monad RPC …";
+      document.querySelectorAll(".timeline button").forEach(b => b.classList.remove("bad"));
+      try {
+        const c = data.chain, rpc = new ethers.JsonRpcProvider(c.rpc, c.chain_id, {staticNetwork: true});
+        const rec = new ethers.Contract(c.contract, abi, rpc);
+        const m = await rec.missions(c.mission_id);
+        const hs = heads(data.log), local = hs[hs.length - 1] || ZERO;
+        const ok = Number(m.decisions) === data.log.length && local === m.head;
+        check(ok, `Decision log: ${data.log.length} entries vs ${m.decisions} on-chain`,
+              `recomputed head ${local}<br>on-chain head&nbsp;&nbsp; ${m.head}`);
+        const brief = data.mission ? keccakJSON(data.mission) : ZERO;
+        check(brief === m.briefHash, "Mission brief hash", data.mission ? m.briefHash : "free flight (no brief)");
+        try {
+          const rep = await (await fetch("flight_report.md")).text();
+          check(ethers.keccak256(ethers.toUtf8Bytes(rep)) === m.reportHash, "Mission report hash", m.reportHash);
+        } catch (_) {}
+        if (!ok) {
+          $("vstatus").textContent = "locating the first altered entry from on-chain Decision events …";
+          const iface = new ethers.Interface(abi);
+          for (let i = 0; i < hs.length; i++) {
+            const r = await rpc.getTransactionReceipt(c.decision_txs[i]);
+            const ev = r.logs.map(l => { try { return iface.parseLog(l); } catch (_) { return null; } })
+                             .find(p => p && p.name === "Decision");
+            if (!ev || ev.args.head !== hs[i]) {
+              check(false, `First altered entry: #${i} at t=${data.log[i].t}s`,
+                    `on-chain record: <a href="${explorer("tx/" + c.decision_txs[i])}" target="_blank" rel="noopener">${c.decision_txs[i]}</a>`);
+              $("timeline").children[i].classList.add("bad");
+              break;
+            }
+          }
+        }
+        $("vstatus").textContent = ok ? "the log is exactly what the drone recorded in flight." : "the log was changed after the flight.";
+      } catch (e) {
+        $("vstatus").textContent = "RPC error: " + (e.shortMessage || e.message);
+      }
+    }
+
+    function tamper() {
+      if (tampered < 0) {
+        tampered = Math.floor(data.log.length / 2);
+        data.log[tampered].decision.reason += " (edited after landing)";
+        $("tamper").textContent = "↺ RESTORE ORIGINAL LOG";
+        $("vstatus").textContent = `entry #${tampered} reason edited in your browser. Now verify.`;
+      } else {
+        data.log[tampered].decision.reason = data.log[tampered].decision.reason.replace(" (edited after landing)", "");
+        tampered = -1; $("tamper").textContent = "✎ TAMPER WITH ONE ENTRY";
+        $("vstatus").textContent = "original log restored.";
+      }
+      $("checks").innerHTML = "";
+    }
+
+    async function init() {
+      [data, abi] = await Promise.all([fetch("flight.json").then(r => r.json()), fetch("abi.json").then(r => r.json())]);
+      const c = data.chain, s = data.stats;
+      $("net").textContent = c.chain_id === 143 ? "MAINNET · 143" : c.chain_id === 10143 ? "TESTNET · 10143" : c.chain_id;
+      $("contract-link").href = explorer("address/" + c.contract);
+      $("contract-link").textContent = c.contract.slice(0, 8) + "…" + c.contract.slice(-6);
+      $("s-dec").textContent = `${c.confirmed} / ${data.log.length}`;
+      $("s-lat").textContent = `${c.confirm_ms_p50} / ${c.confirm_ms_p95} ms`;
+      $("s-ovr").textContent = s.overrides;
+      $("s-mis").innerHTML = `<a href="${explorer("tx/" + c.start_tx)}" target="_blank" rel="noopener">#${c.mission_id}</a> · ${s.model}`;
+      const player = $("player"), pick = $("pick");
+      data.log.forEach((e, i) => {
+        const d = e.decision, b = document.createElement("button");
+        b.style.setProperty("--c", COLOURS[d.action] || "#8a86a3");
+        if (d.override) b.className = "ovr";
+        b.setAttribute("aria-label", `t=${e.t}s ${d.action}`);
+        const show = () => {
+          const tx = c.decision_txs[i];
+          pick.innerHTML = `t=${e.t}s · <b>${d.action}</b> (risk ${d.risk}) · ${d.reason}` +
+            (d.override ? ` · <span style="color:var(--red)">GUARD overrode ${d.proposed}: ${d.override}</span>` : "") +
+            `<br>tx <a href="${explorer("tx/" + tx)}" target="_blank" rel="noopener">${tx}</a>`;
+        };
+        b.addEventListener("mouseenter", show); b.addEventListener("focus", show);
+        b.addEventListener("click", () => { show(); player.currentTime = e.t; player.play(); });
+        $("timeline").appendChild(b);
+      });
+      const rpc = new ethers.JsonRpcProvider(c.rpc, c.chain_id, {staticNetwork: true});
+      const tick = async () => { try { $("block").textContent = "BLOCK " + (await rpc.getBlockNumber()).toLocaleString(); } catch (_) {} };
+      tick(); setInterval(tick, 2000);
+    }
+
+    $("verify").addEventListener("click", verify);
+    $("tamper").addEventListener("click", tamper);
+    init().then(async () => {                        // index.html#verify runs the check on load; #tamper also edits an entry
+      if (location.hash === "#tamper") tamper();
+      if (location.hash === "#verify" || location.hash === "#tamper") await verify();
+      document.body.dataset.done = "1";
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+ "site": "River canyon (FPV test footage)",
+ "goal": "Survey the canyon floor, stay off the water",
+ "objective": "Fly the canyon at low altitude and map the floor without crossing open water",
+ "avoid_terrain": ["water", "mud"],
+ "max_risk": 0.7,
+ "min_clearance_m": 2.0,
+ "return_conditions": ["no safe path for 3 consecutive decisions", "battery below 25%"],
+ "hazards": [],
+ "go_no_go": "CAUTION",
+ "briefing": "Hand-written test brief for the Monad demo (no LLM planner run). Low canyon flight over mixed rock, grass and water. The safety guard slows the copilot whenever water or mud covers half the drivable band, and holds for any obstacle inside 2 m in the forward cone.",
+ "model": "hand-written",
+ "searches": 0
+}
