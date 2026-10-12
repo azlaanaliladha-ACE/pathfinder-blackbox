@@ -51,7 +51,7 @@ camera ─┬─ CLIP terrain ─────────────┐
 `entryHash` is keccak256 of the canonical JSON of the full log entry (scene summary, decision, reason,
 latency), so the off-chain detail is committed without paying to store it. Only the operator who
 opened a mission can append to it, and a closed mission can't be changed. One `logDecision` costs about
-52k gas. Monad charges for the gas limit rather than the gas used, so the recorder estimates the limit
+100k gas. Monad charges for the gas limit rather than the gas used, so the recorder estimates the limit
 once per mission and keeps it tight.
 
 ## Files
